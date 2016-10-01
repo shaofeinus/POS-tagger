@@ -11,9 +11,11 @@ import java.util.Map;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import data.ModelStatistics;
 import data.POSTags;
 import util.Constants;
 import util.SetReader;
+import util.HMMStatisticsCompute;
 
 /**
  * This class runs the Viterbi algorithm on a line using the training statistics
@@ -33,11 +35,13 @@ public class Viterbi {
 	// word.
 	private Map<String, ArrayList<Double>> viterbiMatrix;
 	private Map<String, ArrayList<String>> backPointer;
-	private Learner trainedStatistics;
+	private ModelStatistics trainedStatistics;
 	// The the tag for the last word that is determined to be the best from the
 	// Viterbi algorithm. This is the starting point to get the word/tag pair
 	// for the rest of the words in the line using backPointer.
 	private String bestLastTag;
+	// The best probability of the line using the Viberti algorithm, in log form 
+	private double bestLastStat;
 	private SetReader reader;
 
 	/**
@@ -48,7 +52,7 @@ public class Viterbi {
 	 * @param trainedStatistics
 	 *            Model statistics that has been trained
 	 */
-	public Viterbi(SetReader reader, Learner trainedStatistics) {
+	public Viterbi(SetReader reader, ModelStatistics trainedStatistics) {
 		this.reader = reader;
 		this.trainedStatistics = trainedStatistics;
 		initViterbi();
@@ -116,23 +120,20 @@ public class Viterbi {
 	 * based on the calculated statistics and update bestLastTag.
 	 * 
 	 * Precondition: Must be called only after vibertiRecursion() and
-	 * vibertiFirstWord()
+	 * vibertiFirstWord().
 	 */
 	private void vibertiEndOfLine() {
-
-		// assert reader.isLastToken();
+		int lastWordIndex = reader.getNumTokensInCurrLine() - 1; 
 
 		// Get the maximum state statistics for </s> given a previous candidate
 		// tag
-		// The maximum statistics so far.
-		// Default value is MIN_VALUE.
-		double lastStateStat = Constants.MIN_VALUE;
+		// The maximum statistics so far. Default value is MIN_VALUE.
+		double bestLastStateStat = Constants.MIN_VALUE;
 		// The previous candidate tag that is determined to give the
-		// maximum statistics so far.
-		// Default value is set to TODO:_____, in case that
+		// maximum statistics so far. Default value is set to TODO:_____, in case that
 		// no previous candidate tag can give a better statistics than
 		// MIN_VALUE.
-		String prevState = "NN";
+		String bestPrevState = "NN";
 		// Calculate statistics for each candidate tags except <s> and
 		// </s> and update maximum stateStat and prevState associated
 		// with it accordingly
@@ -142,14 +143,16 @@ public class Viterbi {
 			if (candidateTag.equals("<s>") || candidateTag.equals("</s>"))
 				continue;
 			double candidateStateStat = calculateLastStats(trainedStatistics.getTagGivenPrevTag(candidateTag, "</s>"),
-					viterbiMatrix.get(candidateTag).get(viterbiMatrix.get(candidateTag).size() - 1));
-			if (candidateStateStat > lastStateStat) {
-				lastStateStat = candidateStateStat;
-				prevState = candidateTag;
+					viterbiMatrix.get(candidateTag).get(lastWordIndex));
+			if (candidateStateStat > bestLastStateStat) {
+				bestLastStateStat = candidateStateStat;
+				bestPrevState = candidateTag;
 			}
 		}
 		// Update the best last tag as the tag that maximizes the stateStat
-		bestLastTag = prevState;
+		bestLastTag = bestPrevState;
+		// Update best probability of the line using the Viberti algorithm, in log form
+		bestLastStat = viterbiMatrix.get(bestPrevState).get(lastWordIndex) + trainedStatistics.getTagGivenPrevTag(bestPrevState, "</s>");
 
 		// TODO: remove debug
 		// if (reader.getCurrLineIndex() == 0) {
@@ -195,13 +198,13 @@ public class Viterbi {
 				// processed given a previous candidate tag.
 				// The maximum statistics so far.
 				// Default value is MIN_VALUE.
-				double stateStat = Constants.MIN_VALUE;
+				double bestStateStat = Constants.MIN_VALUE;
 				// The previous candidate tag that is determined to give the
 				// maximum statistics so far.
-				// Default value is just the first tag in the list, in case that
+				// Default value is just "NN", in case that
 				// no previous candidate tag can give a better statistics than
 				// MIN_VALUE.
-				String prevState = tag;
+				String bestPrevState = "NN";
 				// Calculate statistics for each candidate tags except <s> and
 				// </s> and update maximum stateStat and prevState associated
 				// with it accordingly
@@ -213,15 +216,15 @@ public class Viterbi {
 					double candidateStateStat = calculateStats(viterbiMatrix.get(candidateTag).get(prevWordIndex),
 							trainedStatistics.getTagGivenPrevTag(candidateTag, tag),
 							trainedStatistics.getWordGivenTag(tag, word));
-					if (candidateStateStat > stateStat) {
-						stateStat = candidateStateStat;
-						prevState = candidateTag;
+					if (candidateStateStat > bestStateStat) {
+						bestStateStat = candidateStateStat;
+						bestPrevState = candidateTag;
 					}
 				}
 				// Update viterbiMatrix and backPointer with the best stateStat
 				// and prevState
-				viterbiMatrix.get(tag).set(prevWordIndex + 1, stateStat);
-				backPointer.get(tag).set(prevWordIndex + 1, prevState);
+				viterbiMatrix.get(tag).set(prevWordIndex + 1, bestStateStat);
+				backPointer.get(tag).set(prevWordIndex + 1, bestPrevState);
 
 				// TODO: remove debug
 				// if (reader.getCurrLineIndex() == 0) {
@@ -249,6 +252,7 @@ public class Viterbi {
 	 *            First word in the line
 	 */
 	private void viterbiFirstWord() {
+		assert reader.getCurrTokenIndex() == -1;
 		reader.nextToken();
 		String firstWord = reader.getCurrToken();
 		// For each possible tag except <s> and </s>
@@ -259,8 +263,8 @@ public class Viterbi {
 			// associated with any word
 			if (tag.equals("<s>") || tag.equals("</s>"))
 				continue;
-			viterbiMatrix.get(tag).set(0, calculateFirstStats(trainedStatistics.getTagGivenPrevTag("<s>", tag),
-					trainedStatistics.getWordGivenTag(tag, firstWord)));
+			viterbiMatrix.get(tag).set(0, calculateStats(trainedStatistics.getTagGivenPrevTag("<s>", tag),
+					trainedStatistics.getWordGivenTag(tag, firstWord), 0.0));
 			backPointer.get(tag).set(0, "<s>");
 
 			// TODO: remove debug
@@ -273,24 +277,24 @@ public class Viterbi {
 			// "MIN" : print));
 		}
 	}
-
+	
 	/**
-	 * Calculate the statistic of as',s * bs(o) in log form
+	 * Calculate the statistic of viterbi(s',t-1) * as',s in log form
 	 * 
 	 * @param transitionProb
 	 *            log(as',s)
-	 * @param emissionProb
-	 *            log(bs(t))
-	 * @return log(as',s * bs(o))
+	 * @param prevStateStat
+	 *            log(viterbi(s',t-1))
+	 * @return log(viterbi(s',t-1) * as',s)
 	 */
-	private double calculateFirstStats(double transitionProb, double emissionProb) {
-		if (transitionProb == Constants.MIN_VALUE || emissionProb == Constants.MIN_VALUE)
+	public static double calculateLastStats(double transitionProb, double prevStateStat) {
+		if (transitionProb == Constants.MIN_VALUE || prevStateStat == Constants.MIN_VALUE)
 			return Constants.MIN_VALUE;
 		else
-			// log(as',s * bs(o)) = log(as',s) + log(bs(t))
-			return transitionProb + emissionProb;
+			// log(viterbi(s',t-1) * as',s) = log(viterbi(s',t-1)) + log(as',s)
+			return prevStateStat + transitionProb;
 	}
-
+	
 	/**
 	 * Calculate the statistic of viterbi(s',t-1) * as',s * bs(t)in log form
 	 * 
@@ -302,32 +306,11 @@ public class Viterbi {
 	 *            log(viterbi(s',t-1))
 	 * @return log(viterbi(s',t-1) * as',s * bs(t))
 	 */
-	private double calculateStats(double transitionProb, double emissionProb, double prevStateStat) {
+	public static double calculateStats(double transitionProb, double emissionProb, double prevStateStat) {
 		if (transitionProb == Constants.MIN_VALUE || emissionProb == Constants.MIN_VALUE
 				|| prevStateStat == Constants.MIN_VALUE)
 			return Constants.MIN_VALUE;
 		else
-			// log(viterbi(s',t-1) * as',s * bs(t)) = log(prevStateStat) +
-			// log(as',s) +
-			// log(bs(t))
 			return prevStateStat + transitionProb + emissionProb;
 	}
-
-	/**
-	 * Calculate the statistic of viterbi(s',t-1) * as',s in log form
-	 * 
-	 * @param transitionProb
-	 *            log(as',s)
-	 * @param prevStateStat
-	 *            log(viterbi(s',t-1))
-	 * @return log(viterbi(s',t-1) * as',s)
-	 */
-	private double calculateLastStats(double transitionProb, double prevStateStat) {
-		if (transitionProb == Constants.MIN_VALUE || prevStateStat == Constants.MIN_VALUE)
-			return Constants.MIN_VALUE;
-		else
-			// log(viterbi(s',t-1) * as',s) = log(viterbi(s',t-1)) + log(as',s)
-			return prevStateStat + transitionProb;
-	}
-
 }

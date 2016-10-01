@@ -67,17 +67,29 @@ public class EmissionProbabilities {
 	 *            C(t)
 	 */
 	public void computeEmissionProbabilities(Map<String, Integer> tagCount) {
+		// For statistics gathering
+		double total = 0.0;
+		int count = 0;
+		double min = 0;
+		
 		Iterator<String> tagsIter = tagCount.keySet().iterator();
 		while (tagsIter.hasNext()) {
 			String tag = tagsIter.next();
 			Iterator<String> seenTagAndWordsIter = tagAndWordCount.get(tag).keySet().iterator();
 			while (seenTagAndWordsIter.hasNext()) {
 				String seenWord = seenTagAndWordsIter.next();
+				double probability = Math
+						.log(tagAndWordCount.get(tag).get(seenWord).doubleValue() / tagCount.get(tag).doubleValue());
 				// log(P(w|t)) = log(C(w|t)/C(t))
-				wordGivenTag.get(tag).put(seenWord, Math
-						.log(tagAndWordCount.get(tag).get(seenWord).doubleValue() / tagCount.get(tag).doubleValue()));
+				wordGivenTag.get(tag).put(seenWord, probability);
+				
+				// For statistics gathering
+				min = Math.min(min, probability);
+				total += probability;
+				count++;
 			}
 		}
+		System.out.println("Computed emission prob ave: " + total/count + " min: " + min);
 	}
 
 	/**

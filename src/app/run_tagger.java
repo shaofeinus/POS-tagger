@@ -6,6 +6,8 @@ import java.io.FileReader;
 
 import com.google.gson.Gson;
 
+import data.ModelStatistics;
+
 public class run_tagger {
 
 	public static void main(String[] args) {
@@ -20,13 +22,12 @@ public class run_tagger {
 		BufferedReader br;
 		try {
 			br = new BufferedReader(new FileReader(modelFileName));
-//			StringBuilder sb = new StringBuilder();
-//			String line;
-//			while((line = br.readLine()) != null)
-//				sb.append(line);
-			Learner learner = gson.fromJson(br, Learner.class);
-			Tagger tag = new Tagger(learner, untaggedFileName, taggedFileName);
-			tag.tag();
+			ModelStatistics learner = gson.fromJson(br, ModelStatistics.class);
+//			Tagger tag = new Tagger(learner, untaggedFileName, taggedFileName);
+//			tag.tag();
+			
+			Evaluator evaluator = new Evaluator(learner, "sents.devt");
+			evaluator.evaluate();
 
 		} catch (FileNotFoundException e) {
 			System.out.println(modelFileName + " not found!");

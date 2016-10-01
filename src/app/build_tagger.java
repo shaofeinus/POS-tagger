@@ -7,6 +7,8 @@ import java.io.IOException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import data.ModelStatistics;
+
 public class build_tagger {
 
 	public static void main(String[] args) {
@@ -16,12 +18,12 @@ public class build_tagger {
 			String modelFileName = "model_file";
 			
 			// Train using Learner
-			Learner learner = new Learner(trainingFileName);
-			learner.learn();
+			ModelStatistics modelStats = new ModelStatistics(trainingFileName);
+			modelStats.learn();
 			
 			// Save Learner in model_file
 			Gson gson =  new GsonBuilder().setPrettyPrinting().create();
-			String learnerJson = gson.toJson(learner);
+			String learnerJson = gson.toJson(modelStats);
 			BufferedWriter bf = new BufferedWriter(new FileWriter(modelFileName, false));
 			bf.write(learnerJson);
 			bf.close();

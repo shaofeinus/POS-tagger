@@ -69,18 +69,28 @@ public class TransitionProbabilties {
 	 *            C(ti-1)
 	 */
 	public void computeTransitionProbabilities(Map<String, Integer> tagCount) {
+		// For statistics gathering
+		double total = 0.0;
+		int count = 0;
+		double min = 0;
 		Iterator<String> prevTagsIter = tagCount.keySet().iterator();
 		while (prevTagsIter.hasNext()) {
 			String prevTag = prevTagsIter.next();
 			Iterator<String> seenPrevTagsAndTagsIter = prevTagAndTagCount.get(prevTag).keySet().iterator();
 			while (seenPrevTagsAndTagsIter.hasNext()) {
 				String seenTag = seenPrevTagsAndTagsIter.next();
+				double probability = Math.log(prevTagAndTagCount.get(prevTag).get(seenTag).doubleValue()
+						/ tagCount.get(prevTag).doubleValue());
 				// log(P(ti|ti-1)) = log(C(ti|ti-1)/C(ti-1))
-				tagGivenPrevTag.get(prevTag).put(seenTag,
-						Math.log(prevTagAndTagCount.get(prevTag).get(seenTag).doubleValue()
-								/ tagCount.get(prevTag).doubleValue()));
+				tagGivenPrevTag.get(prevTag).put(seenTag, probability);
+				
+				// For statistics gathering
+				min = Math.min(min, probability);
+				total += probability;
+				count++;
 			}
 		}
+		System.out.println("Computed transition prob ave: " + total/count + " min: " + min);
 	}
 
 	/**

@@ -1,4 +1,4 @@
-package app;
+package data;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -6,12 +6,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import data.EmissionProbabilities;
-import data.POSTags;
-import data.TransitionProbabilties;
 import util.TaggedSetReader;
 
-public class Learner {
+public class ModelStatistics {
 
 	transient private static final POSTags ALL_POS_TAGS = new POSTags();
 
@@ -22,7 +19,7 @@ public class Learner {
 	private Set<String> vocabulary;
 	private boolean learned;
 
-	public Learner(String trainingFile) {
+	public ModelStatistics(String trainingFile) {
 		initLearner();
 		this.trainingFile = trainingFile;
 	}
