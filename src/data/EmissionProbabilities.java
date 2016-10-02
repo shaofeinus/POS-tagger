@@ -11,19 +11,27 @@ import util.Constants;
  * Stores emission probabilities, the probability of an word given a POS tag,
  * P(wi|ti) and other statistics associated with emission probabilities.
  * 
- * All probability calculations are done in log to allow very small probability
- * values.
+ * P(wi|ti) is in this class is a unsmoothed probability and thus zero
+ * probability is possible
  * 
  * @author Shao Fei A0102015H
  * 
  */
 public class EmissionProbabilities {
 
+	// Set of all possible POS Tags
+	transient private static final POSTags ALL_POS_TAGS = new POSTags();
 	// Set of suffixes, for use during the unknown word model
 	transient private static final Suffixes SUFFIXES = new Suffixes();
 
+	// Vocabulary of all known words
+	private Set<String> vocabulary;
+	// C(t)
+	private Map<String, Integer> tagCount;
+	// C(w)
+	private Map<String, Integer> wordCount;
 	// C(w,t)
-	transient private Map<String, Map<String, Integer>> tagAndWordCount;
+	private Map<String, Map<String, Integer>> tagAndWordCount;
 	// Count of capitalization and suffixes in words in training set. Used to
 	// calculate emission probabilities for unknown words
 	// C(cap,t)
@@ -31,10 +39,22 @@ public class EmissionProbabilities {
 	// C(suf,t)
 	private Map<String, Integer> tagAndSufCount;
 	// log(P(w|t))
-	private Map<String, Map<String, Double>> wordGivenTag;
+	private Map<String, Map<String, Double>> logWordGivenTag;
 
-	public EmissionProbabilities(POSTags allTags) {
-		initEmissionProbabilities(allTags);
+	/**
+	 * @param tagCount
+	 *            C(t), Managed by the parent class ModelStatistics
+	 * @param wordCount
+	 *            C(w). Managed by the parent class ModelStatistics
+	 * @param vocabulary
+	 *            Managed by the parent class ModelStatistics
+	 */
+	public EmissionProbabilities(Map<String, Integer> tagCount, Map<String, Integer> wordCount,
+			Set<String> vocabulary) {
+		this.tagCount = tagCount;
+		this.wordCount = wordCount;
+		this.vocabulary = vocabulary;
+		initEmissionProbabilities();
 	}
 
 	/**
@@ -43,18 +63,18 @@ public class EmissionProbabilities {
 	 * @param allTags
 	 *            List of all POS tags
 	 */
-	public void initEmissionProbabilities(POSTags allTags) {
+	public void initEmissionProbabilities() {
 		tagAndWordCount = new HashMap<String, Map<String, Integer>>();
 		tagAndCapCount = new HashMap<String, Integer>();
 		tagAndSufCount = new HashMap<String, Integer>();
-		wordGivenTag = new HashMap<String, Map<String, Double>>();
-		Iterator<String> tagsIter = allTags.getIterator();
+		logWordGivenTag = new HashMap<String, Map<String, Double>>();
+		Iterator<String> tagsIter = ALL_POS_TAGS.getIterator();
 		while (tagsIter.hasNext()) {
 			String tag = tagsIter.next();
 			tagAndWordCount.put(tag, new HashMap<String, Integer>());
 			tagAndCapCount.put(tag, 0);
 			tagAndSufCount.put(tag, 0);
-			wordGivenTag.put(tag, new HashMap<String, Double>());
+			logWordGivenTag.put(tag, new HashMap<String, Double>());
 		}
 	}
 
@@ -62,16 +82,13 @@ public class EmissionProbabilities {
 	 * Computes the emission probabilities log(P(w|t)) based on the current
 	 * tagAndWordCount C(w,t) and C(t). As such log(P(w|t)) can only be computed
 	 * for words where C(w,t) > 0
-	 * 
-	 * @param tagCount
-	 *            C(t)
 	 */
-	public void computeEmissionProbabilities(Map<String, Integer> tagCount) {
+	public void computeEmissionProbabilities() {
 		// For statistics gathering
 		double total = 0.0;
 		int count = 0;
 		double min = 0;
-		
+
 		Iterator<String> tagsIter = tagCount.keySet().iterator();
 		while (tagsIter.hasNext()) {
 			String tag = tagsIter.next();
@@ -81,15 +98,15 @@ public class EmissionProbabilities {
 				double probability = Math
 						.log(tagAndWordCount.get(tag).get(seenWord).doubleValue() / tagCount.get(tag).doubleValue());
 				// log(P(w|t)) = log(C(w|t)/C(t))
-				wordGivenTag.get(tag).put(seenWord, probability);
-				
+				logWordGivenTag.get(tag).put(seenWord, probability);
+
 				// For statistics gathering
 				min = Math.min(min, probability);
 				total += probability;
 				count++;
 			}
 		}
-		System.out.println("Computed emission prob ave: " + total/count + " min: " + min);
+		System.out.println("Computed emission prob ave: " + total / count + " min: " + min);
 	}
 
 	/**
@@ -142,27 +159,23 @@ public class EmissionProbabilities {
 	 *            The query POS tag
 	 * @param word
 	 *            The query word
-	 * @param tagCount
-	 *            C(t)
-	 * @param vocabulary
-	 *            The set of known vocabulary
 	 * @return log(P(w|t)) if word exists in vocabulary and C(w,t) > 0, log(0) =
 	 *         MIN_VALUE if word exists in vocabulary but C(w,t) =0, log(P(w|t))
 	 *         using unknown word model if word does not exist in vocabulary
 	 */
-	public double getWordGivenTag(String tag, String word, Map<String, Integer> tagCount, Set<String> vocabulary) {
+	public double getWordGivenTag(String tag, String word) {
 		// Word is in vocabulary
 		if (vocabulary.contains(word)) {
 			// C(w,t) = 0, emission probability = log(0) = MIN_NUMBER;
-			if (!wordGivenTag.get(tag).containsKey(word))
+			if (!logWordGivenTag.get(tag).containsKey(word))
 				return Constants.MIN_VALUE;
 			// C(w,t) > 0, return emission probability
 			else
-				return wordGivenTag.get(tag).get(word);
+				return logWordGivenTag.get(tag).get(word);
 		}
 		// Word is not in vocabulary, estimate P(w|t) using unknown word model
 		else
-			return emissionProbUnknownWordModel(tag, tagCount);
+			return emissionProbUnknownWordModel(tag);
 	}
 
 	/**
@@ -175,7 +188,7 @@ public class EmissionProbabilities {
 	 *            C(t)
 	 * @return log of the estimated emission probability, log(P(w|t))
 	 */
-	private double emissionProbUnknownWordModel(String tag, Map<String, Integer> tagCount) {
+	private double emissionProbUnknownWordModel(String tag) {
 		// System.out.println(tagAndCapCount.get(tag).doubleValue() + " " +
 		// tagAndSufCount.get(tag).doubleValue());
 		// C(cap|t) or C(suf|t) = 0, emission probability = log(0) = MIN_NUMBER;

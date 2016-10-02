@@ -6,7 +6,11 @@ import java.io.FileReader;
 
 import com.google.gson.Gson;
 
-import data.ModelStatistics;
+import data.Model;
+import data.ModelAddN;
+import data.ModelInterpolate;
+import data.ModelKneserNey;
+import data.ModelUnsmoothed;
 
 public class run_tagger {
 
@@ -22,7 +26,7 @@ public class run_tagger {
 		BufferedReader br;
 		try {
 			br = new BufferedReader(new FileReader(modelFileName));
-			ModelStatistics learner = gson.fromJson(br, ModelStatistics.class);
+			Model learner = gson.fromJson(br, ModelUnsmoothed.class);
 //			Tagger tag = new Tagger(learner, untaggedFileName, taggedFileName);
 //			tag.tag();
 			

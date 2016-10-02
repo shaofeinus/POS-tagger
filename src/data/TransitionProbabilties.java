@@ -18,15 +18,25 @@ import util.Constants;
  */
 public class TransitionProbabilties {
 
+	// Set of all possible POS Tags
+	transient private static final POSTags ALL_POS_TAGS = new POSTags();
+
+	// C(t)
+	private Map<String, Integer> tagCount;
 	// C(ti,ti-1)
 	transient private Map<String, Map<String, Integer>> prevTagAndTagCount;
 	// log(P(ti|ti-1))
 	private Map<String, Map<String, Double>> tagGivenPrevTag;
 
-	public TransitionProbabilties(POSTags allTags) {
+	/**
+	 * @param tagCount
+	 *            C(t), Managed by the parent class ModelStatistics
+	 */
+	public TransitionProbabilties(Map<String, Integer> tagCount) {
+		this.tagCount = tagCount;
 		prevTagAndTagCount = new HashMap<String, Map<String, Integer>>();
 		tagGivenPrevTag = new HashMap<String, Map<String, Double>>();
-		Iterator<String> tagsIter = allTags.getIterator();
+		Iterator<String> tagsIter = ALL_POS_TAGS.getIterator();
 		while (tagsIter.hasNext()) {
 			String tag = tagsIter.next();
 			prevTagAndTagCount.put(tag, new HashMap<String, Integer>());
@@ -68,7 +78,7 @@ public class TransitionProbabilties {
 	 * @param tagCount
 	 *            C(ti-1)
 	 */
-	public void computeTransitionProbabilities(Map<String, Integer> tagCount) {
+	public void computeTransitionProbabilities() {
 		// For statistics gathering
 		double total = 0.0;
 		int count = 0;
@@ -79,18 +89,18 @@ public class TransitionProbabilties {
 			Iterator<String> seenPrevTagsAndTagsIter = prevTagAndTagCount.get(prevTag).keySet().iterator();
 			while (seenPrevTagsAndTagsIter.hasNext()) {
 				String seenTag = seenPrevTagsAndTagsIter.next();
-				double probability = Math.log(prevTagAndTagCount.get(prevTag).get(seenTag).doubleValue()
-						/ tagCount.get(prevTag).doubleValue());
+				double probability = prevTagAndTagCount.get(prevTag).get(seenTag).doubleValue()
+						/ tagCount.get(prevTag).doubleValue();
 				// log(P(ti|ti-1)) = log(C(ti|ti-1)/C(ti-1))
 				tagGivenPrevTag.get(prevTag).put(seenTag, probability);
-				
+
 				// For statistics gathering
 				min = Math.min(min, probability);
 				total += probability;
 				count++;
 			}
 		}
-		System.out.println("Computed transition prob ave: " + total/count + " min: " + min);
+		System.out.println("Computed transition prob ave: " + total / count + " min: " + min);
 	}
 
 	/**
@@ -105,7 +115,7 @@ public class TransitionProbabilties {
 	public double getTagGivenPrevTag(String prevTag, String tag) {
 		// C(ti,ti-1) = 0, transition probability = log(0) = MIN_NUMBER;
 		if (!tagGivenPrevTag.get(prevTag).containsKey(tag))
-			return Constants.MIN_VALUE;
+			return 0.0;
 		// C(ti,ti-1) > 0
 		else
 			return tagGivenPrevTag.get(prevTag).get(tag);

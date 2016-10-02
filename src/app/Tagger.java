@@ -3,13 +3,13 @@ package app;
 import java.util.ArrayList;
 import java.util.Map;
 
-import data.ModelStatistics;
+import data.Model;
 import util.SetReader;
 import util.TaggedSetWriter;
 
 public class Tagger {
 
-	private ModelStatistics trainedStatistics;
+	private Model trainedStatistics;
 	private String taggingFile;
 	private String taggedFile;
 
@@ -21,7 +21,7 @@ public class Tagger {
 	 * @param taggedFile
 	 *            The file name of the output tagged file
 	 */
-	public Tagger(ModelStatistics learner, String taggingFile, String taggedFile) {
+	public Tagger(Model learner, String taggingFile, String taggedFile) {
 		assert learner.isLearned();
 		this.trainedStatistics = learner;
 		this.taggingFile = taggingFile;

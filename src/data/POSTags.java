@@ -32,6 +32,10 @@ public class POSTags {
 	public Iterator<String> getIterator() {
 		return POSSIBLE_POS_TAGS.iterator();
 	}
+	
+	public int size() {
+		return POSSIBLE_POS_TAGS.size();
+	}
 
 	private void loadStates() {
 		try {

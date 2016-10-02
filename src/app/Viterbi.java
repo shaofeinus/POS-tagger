@@ -11,7 +11,7 @@ import java.util.Map;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import data.ModelStatistics;
+import data.Model;
 import data.POSTags;
 import util.Constants;
 import util.SetReader;
@@ -35,12 +35,12 @@ public class Viterbi {
 	// word.
 	private Map<String, ArrayList<Double>> viterbiMatrix;
 	private Map<String, ArrayList<String>> backPointer;
-	private ModelStatistics trainedStatistics;
+	private Model trainedStatistics;
 	// The the tag for the last word that is determined to be the best from the
 	// Viterbi algorithm. This is the starting point to get the word/tag pair
 	// for the rest of the words in the line using backPointer.
 	private String bestLastTag;
-	// The best probability of the line using the Viberti algorithm, in log form 
+	// The best probability of the line using the Viberti algorithm, in log form
 	private double bestLastStat;
 	private SetReader reader;
 
@@ -52,7 +52,7 @@ public class Viterbi {
 	 * @param trainedStatistics
 	 *            Model statistics that has been trained
 	 */
-	public Viterbi(SetReader reader, ModelStatistics trainedStatistics) {
+	public Viterbi(SetReader reader, Model trainedStatistics) {
 		this.reader = reader;
 		this.trainedStatistics = trainedStatistics;
 		initViterbi();
@@ -76,18 +76,6 @@ public class Viterbi {
 		// Compute statistics for the last word to determine the last tag to
 		// start the back trace
 		vibertiEndOfLine();
-
-		// TODO: remove debug
-		if (reader.getCurrLineIndex() == 0) {
-			try {
-				BufferedWriter bw = new BufferedWriter(new FileWriter("back pointer", false));
-				Gson gson = new GsonBuilder().setPrettyPrinting().create();
-				bw.write(gson.toJson(backPointer));
-				bw.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
 	}
 
 	/**
@@ -123,14 +111,15 @@ public class Viterbi {
 	 * vibertiFirstWord().
 	 */
 	private void vibertiEndOfLine() {
-		int lastWordIndex = reader.getNumTokensInCurrLine() - 1; 
+		int lastWordIndex = reader.getNumTokensInCurrLine() - 1;
 
 		// Get the maximum state statistics for </s> given a previous candidate
 		// tag
 		// The maximum statistics so far. Default value is MIN_VALUE.
 		double bestLastStateStat = Constants.MIN_VALUE;
 		// The previous candidate tag that is determined to give the
-		// maximum statistics so far. Default value is set to TODO:_____, in case that
+		// maximum statistics so far. Default value is set to TODO:_____, in
+		// case that
 		// no previous candidate tag can give a better statistics than
 		// MIN_VALUE.
 		String bestPrevState = "NN";
@@ -139,20 +128,28 @@ public class Viterbi {
 		// with it accordingly
 		Iterator<String> tagsIter = ALL_POS_TAGS.getIterator();
 		while (tagsIter.hasNext()) {
-			String candidateTag = tagsIter.next();
-			if (candidateTag.equals("<s>") || candidateTag.equals("</s>"))
+			String candidatePrevTag = tagsIter.next();
+			if (candidatePrevTag.equals("<s>") || candidatePrevTag.equals("</s>"))
 				continue;
-			double candidateStateStat = calculateLastStats(trainedStatistics.getTagGivenPrevTag(candidateTag, "</s>"),
-					viterbiMatrix.get(candidateTag).get(lastWordIndex));
+
+			// Convert probability to log form
+			double tagGivenPreviousTag = trainedStatistics.getTagGivenPrevTag(candidatePrevTag, "</s>");
+			double logTagGivenPreviousTag = tagGivenPreviousTag == 0.0 ? Constants.MIN_VALUE
+					: Math.log(tagGivenPreviousTag);
+
+			double candidateStateStat = calculateLastStats(logTagGivenPreviousTag,
+					viterbiMatrix.get(candidatePrevTag).get(lastWordIndex));
 			if (candidateStateStat > bestLastStateStat) {
 				bestLastStateStat = candidateStateStat;
-				bestPrevState = candidateTag;
+				bestPrevState = candidatePrevTag;
 			}
 		}
 		// Update the best last tag as the tag that maximizes the stateStat
 		bestLastTag = bestPrevState;
-		// Update best probability of the line using the Viberti algorithm, in log form
-		bestLastStat = viterbiMatrix.get(bestPrevState).get(lastWordIndex) + trainedStatistics.getTagGivenPrevTag(bestPrevState, "</s>");
+		// Update best probability of the line using the Viberti algorithm, in
+		// log form
+		bestLastStat = viterbiMatrix.get(bestPrevState).get(lastWordIndex)
+				+ trainedStatistics.getTagGivenPrevTag(bestPrevState, "</s>");
 
 		// TODO: remove debug
 		// if (reader.getCurrLineIndex() == 0) {
@@ -210,15 +207,30 @@ public class Viterbi {
 				// with it accordingly
 				Iterator<String> tagsIterInner = ALL_POS_TAGS.getIterator();
 				while (tagsIterInner.hasNext()) {
-					String candidateTag = tagsIterInner.next();
-					if (candidateTag.equals("<s>") || candidateTag.equals("</s>"))
+					String candidatePrevTag = tagsIterInner.next();
+					String actualWord = word.toString();
+					if (candidatePrevTag.equals("<s>") || candidatePrevTag.equals("</s>"))
 						continue;
-					double candidateStateStat = calculateStats(viterbiMatrix.get(candidateTag).get(prevWordIndex),
-							trainedStatistics.getTagGivenPrevTag(candidateTag, tag),
-							trainedStatistics.getWordGivenTag(tag, word));
+
+					// When first token in line is ``, decapitalize
+					// second word if only first letter is uppercase, except
+					// word "I"
+					if (reader.getCurrTokenIndex() == 1 && candidatePrevTag.equals("``") && !word.equals("I"))
+						if (word.substring(1).toLowerCase().equals(word.substring(1)))
+							actualWord = word.toLowerCase();
+
+					// Convert probability to log form
+					double tagGivenPreviousTag = trainedStatistics.getTagGivenPrevTag(candidatePrevTag, tag);
+					double logTagGivenPreviousTag = tagGivenPreviousTag == 0.0 ? Constants.MIN_VALUE
+							: Math.log(tagGivenPreviousTag);
+					double wordGivenTag = trainedStatistics.getWordGivenTag(tag, actualWord);
+					double logWordGivenTag = wordGivenTag == 0.0 ? Constants.MIN_VALUE : Math.log(wordGivenTag);
+
+					double candidateStateStat = calculateStats(viterbiMatrix.get(candidatePrevTag).get(prevWordIndex),
+							logTagGivenPreviousTag, logWordGivenTag);
 					if (candidateStateStat > bestStateStat) {
 						bestStateStat = candidateStateStat;
-						bestPrevState = candidateTag;
+						bestPrevState = candidatePrevTag;
 					}
 				}
 				// Update viterbiMatrix and backPointer with the best stateStat
@@ -255,6 +267,11 @@ public class Viterbi {
 		assert reader.getCurrTokenIndex() == -1;
 		reader.nextToken();
 		String firstWord = reader.getCurrToken();
+		// Decapitalize first word if only first letter is uppercase,
+		// except word "I"
+//		if (firstWord.substring(1).toLowerCase().equals(firstWord.substring(1)) && !firstWord.equals("I"))
+//			firstWord = firstWord.toLowerCase();
+
 		// For each possible tag except <s> and </s>
 		Iterator<String> tagsIter = ALL_POS_TAGS.getIterator();
 		while (tagsIter.hasNext()) {
@@ -263,8 +280,15 @@ public class Viterbi {
 			// associated with any word
 			if (tag.equals("<s>") || tag.equals("</s>"))
 				continue;
-			viterbiMatrix.get(tag).set(0, calculateStats(trainedStatistics.getTagGivenPrevTag("<s>", tag),
-					trainedStatistics.getWordGivenTag(tag, firstWord), 0.0));
+
+			// Convert probability to log form
+			double tagGivenPreviousTag = trainedStatistics.getTagGivenPrevTag("<s>", tag);
+			double logTagGivenPreviousTag = tagGivenPreviousTag == 0.0 ? Constants.MIN_VALUE
+					: Math.log(tagGivenPreviousTag);
+			double wordGivenTag = trainedStatistics.getWordGivenTag(tag, firstWord);
+			double logWordGivenTag = wordGivenTag == 0.0 ? Constants.MIN_VALUE : Math.log(wordGivenTag);
+
+			viterbiMatrix.get(tag).set(0, calculateStats(logTagGivenPreviousTag, logWordGivenTag, 0.0));
 			backPointer.get(tag).set(0, "<s>");
 
 			// TODO: remove debug
@@ -277,7 +301,7 @@ public class Viterbi {
 			// "MIN" : print));
 		}
 	}
-	
+
 	/**
 	 * Calculate the statistic of viterbi(s',t-1) * as',s in log form
 	 * 
@@ -294,7 +318,7 @@ public class Viterbi {
 			// log(viterbi(s',t-1) * as',s) = log(viterbi(s',t-1)) + log(as',s)
 			return prevStateStat + transitionProb;
 	}
-	
+
 	/**
 	 * Calculate the statistic of viterbi(s',t-1) * as',s * bs(t)in log form
 	 * 

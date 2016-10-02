@@ -2,7 +2,7 @@ package app;
 
 import java.io.File;
 
-import data.ModelStatistics;
+import data.Model;
 import util.HMMStatisticsCompute;
 import util.TaggedSetReader;
 import util.Untagger;
@@ -17,7 +17,7 @@ import util.Untagger;
 public class Evaluator {
 
 	private String developmentSetFileName;
-	private ModelStatistics modelStatistics;
+	private Model modelStatistics;
 	// Performance measures
 	private double accuracy;
 	private double perplexity;
@@ -29,7 +29,7 @@ public class Evaluator {
 	 *            The correctly tagged set of sentences
 	 * 
 	 */
-	public Evaluator(ModelStatistics modelStatistics, String developmentSetFileName) {
+	public Evaluator(Model modelStatistics, String developmentSetFileName) {
 		this.developmentSetFileName = developmentSetFileName;
 		this.modelStatistics = modelStatistics;
 	}
