@@ -20,8 +20,8 @@ public class ModelKneserNey extends Model {
 
 	// D is used to obtain P(a|b) when C(a,b) > 0
 	// 1 for emission probability and 1 for transition probability
-	transient private double DEmissionProb;
-	transient private double DTransitionProb;
+	private double DEmissionProb;
+	private double DTransitionProb;
 	// Used during tuning
 	// 1 for emission probability and 1 for transition probability
 	transient private double DEmissionProbBest;
@@ -41,7 +41,7 @@ public class ModelKneserNey extends Model {
 	transient private int totalDistinctPairsEmissionProb;
 	transient private int totalDistinctPairsTransitionProb;
 	
-	transient boolean isEmissionProbInitialised, isTransitionProbInitialised;
+	private boolean isEmissionProbInitialised = false, isTransitionProbInitialised = false;
 	
 	public ModelKneserNey(String trainingFile) {
 		super(trainingFile);

@@ -55,7 +55,6 @@ public class Learner {
 		modelStatistics.loadCountStatistics();
 		// Compute the model statistics
 		modelStatistics.setParametersToDefault();
-		modelStatistics.computeHMMStatistics();
 		System.out.println("Computing accuracy for " + id + "...");
 		evaluateAccuracy();
 
@@ -107,7 +106,6 @@ public class Learner {
 				System.out.println("Computing accuracy for next set of parameters for " + id + "...");
 
 			// Compute the model statistics
-			modelStatistics.computeHMMStatistics();
 			// Update the best accuracy
 			evaluateAccuracy();
 			if (accuracy > bestAccuracy) {
@@ -131,7 +129,6 @@ public class Learner {
 		modelStatistics.setParametersToBest();
 		System.out
 				.println("Best parameters for " + id + "," + modelStatistics.getParamtersValues() + "," + bestAccuracy);
-		modelStatistics.computeHMMStatistics();
 	}
 
 	/**

@@ -20,8 +20,8 @@ public class ModelAddN extends Model {
 	transient private double nTransitionProbBest;
 
 	// 1 for emission probability and 1 for transition probability
-	transient private double nEmissionProb;
-	transient private double nTransitionProb;
+	private double nEmissionProb;
+	private double nTransitionProb;
 
 	public ModelAddN(String trainingFile) {
 		super(trainingFile);

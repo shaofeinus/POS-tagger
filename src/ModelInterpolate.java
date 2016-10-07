@@ -23,8 +23,8 @@ public class ModelInterpolate extends Model {
 	transient private double lambda1TransitionProbBest;
 
 	// 1 for emission probability and 1 for transition probability
-	transient private double lambda1EmissionProb, lambda2EmissionProb;
-	transient private double lambda1TransitionProb, lambda2TransitionProb;
+	private double lambda1EmissionProb, lambda2EmissionProb;
+	private double lambda1TransitionProb, lambda2TransitionProb;
 
 	public ModelInterpolate(String trainingFile) {
 		super(trainingFile);

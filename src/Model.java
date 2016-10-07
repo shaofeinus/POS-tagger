@@ -29,17 +29,13 @@ public abstract class Model implements Serializable {
 	/** Written to model_file **/
 	protected Map<String, Integer> tagCount;
 	// C(w)
-	transient protected Map<String, Integer> wordCount;
+	/** Written to model_file **/
+	protected Map<String, Integer> wordCount;
 	// C(w,t)
-	transient protected Map<String, Map<String, Integer>> tagAndWordCount;
-	// P(w|t)
 	/** Written to model_file **/
-	private Map<String, Map<String, Double>> wordGivenTag;
+	protected Map<String, Map<String, Integer>> tagAndWordCount;
 	// C(ti,ti-1)
-	transient protected Map<String, Map<String, Integer>> prevTagAndTagCount;
-	// P(ti|ti-1)
-	/** Written to model_file **/
-	private Map<String, Map<String, Double>> tagGivenPrevTag;
+	protected Map<String, Map<String, Integer>> prevTagAndTagCount;
 
 	// Count of capitalization and suffixes in words in training set. Used to
 	// calculate emission probabilities for unknown words
@@ -49,8 +45,6 @@ public abstract class Model implements Serializable {
 	// C(suf,t)
 	/** Written to model_file **/
 	private Map<String, Map<String, Integer>> tagAndSuffixCount;
-	// P(unknown word|t)
-	// private Map<String, Double> unknownWordGivenTag;
 
 	/** Written to model_file **/
 	protected boolean isTrained;
@@ -68,22 +62,17 @@ public abstract class Model implements Serializable {
 		tagCount = new HashMap<String, Integer>();
 		wordCount = new HashMap<String, Integer>();
 		tagAndWordCount = new HashMap<String, Map<String, Integer>>();
-		wordGivenTag = new HashMap<String, Map<String, Double>>();
 		prevTagAndTagCount = new HashMap<String, Map<String, Integer>>();
-		tagGivenPrevTag = new HashMap<String, Map<String, Double>>();
 
 		tagAndContainsCapitalCount = new HashMap<String, Integer>();
 		tagAndSuffixCount = new HashMap<String, Map<String, Integer>>();
-		// unknownWordGivenTag = new HashMap<String, Double>();
-
+		
 		Iterator<String> tagsIter = ALL_POS_TAGS.getIterator();
 		while (tagsIter.hasNext()) {
 			String tag = tagsIter.next();
 			tagCount.put(tag, 0);
 			tagAndWordCount.put(tag, new HashMap<String, Integer>());
-			wordGivenTag.put(tag, new HashMap<String, Double>());
 			prevTagAndTagCount.put(tag, new HashMap<String, Integer>());
-			tagGivenPrevTag.put(tag, new HashMap<String, Double>());
 			tagAndContainsCapitalCount.put(tag, 0);
 			tagAndSuffixCount.put(tag, new HashMap<String, Integer>());
 		}
@@ -186,6 +175,8 @@ public abstract class Model implements Serializable {
 				prevTag = tag;
 			}
 		}
+		
+		isTrained = true;
 	}
 
 	/**
@@ -224,8 +215,16 @@ public abstract class Model implements Serializable {
 		if (!isTrained)
 			throw new IllegalStateException("Model is not trained!");
 		// Word is in vocabulary
-		if (vocabulary.contains(word))
-			return wordGivenTag.get(tag).get(word);
+		if (vocabulary.contains(word)) {
+			// P(w|<s>) and P(w|</s>) = 0
+			if (tag.equals("<s>") || tag.equals("</s>"))
+				return 0.0;
+			else if (tagAndWordCount.get(tag).containsKey(word))
+				return nonZeroEmissionProb(tag, word);
+			else
+				return zeroEmissionProb(tag, word);
+//			return wordGivenTag.get(tag).get(word);
+		}
 		// Word is not in vocabulary, estimate P(w|t) using unknown word model
 		else
 			return emissionProbUnknownWordModel(tag, word);
@@ -243,66 +242,20 @@ public abstract class Model implements Serializable {
 	public double getTagGivenPrevTag(String prevTag, String tag) throws IllegalStateException {
 		if (!isTrained)
 			throw new IllegalStateException("Model is not trained!");
-		return tagGivenPrevTag.get(prevTag).get(tag);
+		// P(<s>|ti-1) and P(t|</s>) = 0
+		if (tag.equals("<s>") || prevTag.equals("</s>"))
+			return 0.0;
+		else if (prevTagAndTagCount.get(prevTag).containsKey(tag))
+			return nonZeroTransitionProb(prevTag, tag);
+		else
+			return zeroTransitionProb(prevTag, tag);
+		
+//		return tagGivenPrevTag.get(prevTag).get(tag);
+		
 	}
 
 	public boolean isTrained() {
 		return isTrained;
-	}
-
-	public void computeHMMStatistics() {
-		computeEmissionProbabilities();
-		computeTransitionProbabilities();
-		isTrained = true;
-	}
-
-	/**
-	 * Compute P(w|t) based on the current count statistics and smoothing
-	 * parameters
-	 */
-	public void computeEmissionProbabilities() {
-		// For known words
-		Iterator<String> tagsIter = tagCount.keySet().iterator();
-		while (tagsIter.hasNext()) {
-			String tag = tagsIter.next();
-			Iterator<String> wordsIter = vocabulary.iterator();
-			while (wordsIter.hasNext()) {
-				String word = wordsIter.next();
-				double probability;
-				// P(w|<s>) and P(w|</s>) = 0
-				if (tag.equals("<s>") || tag.equals("</s>"))
-					probability = 0.0;
-				else if (tagAndWordCount.get(tag).containsKey(word))
-					probability = nonZeroEmissionProb(tag, word);
-				else
-					probability = zeroEmissionProb(tag, word);
-				wordGivenTag.get(tag).put(word, probability);
-			}
-		}
-	}
-
-	/**
-	 *  Compute P(ti|ti-1) based on the current count statistics and smoothing
-	 * 	parameters
-	 */
-	public void computeTransitionProbabilities() {
-		Iterator<String> prevTagsIter = tagCount.keySet().iterator();
-		while (prevTagsIter.hasNext()) {
-			String prevTag = prevTagsIter.next();
-			Iterator<String> tagsIter = ALL_POS_TAGS.getIterator();
-			while (tagsIter.hasNext()) {
-				String tag = tagsIter.next();
-				double probability;
-				// P(<s>|ti-1) and P(t|</s>) = 0
-				if (tag.equals("<s>") || prevTag.equals("</s>"))
-					probability = 0.0;
-				else if (prevTagAndTagCount.get(prevTag).containsKey(tag))
-					probability = nonZeroTransitionProb(prevTag, tag);
-				else
-					probability = zeroTransitionProb(prevTag, tag);
-				tagGivenPrevTag.get(prevTag).put(tag, probability);
-			}
-		}
 	}
 
 	public int getNumTuningIterations() {

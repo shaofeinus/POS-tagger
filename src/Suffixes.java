@@ -1,9 +1,4 @@
 
-
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -18,7 +13,6 @@ import java.util.Set;
  */
 public class Suffixes {
 
-	private static final String SUFFIX_FILE = "suffixes.data";
 	private static final String[] SUFFIXES = {
 			"able",
 			"al",
@@ -70,7 +64,6 @@ public class Suffixes {
 
 	public Suffixes() {
 		POSSIBLE_SUFFIXES = new HashSet<String>(Arrays.asList(SUFFIXES));
-//		loadSuffixes();
 	}
 
 	public boolean has(String suffix) {
@@ -105,21 +98,5 @@ public class Suffixes {
 	public int size() {
 		return POSSIBLE_SUFFIXES.size();
 	}
-
-	private void loadSuffixes() {
-		try {
-			BufferedReader br = new BufferedReader(new FileReader(SUFFIX_FILE));
-			String line;
-			assert POSSIBLE_SUFFIXES != null;
-			while ((line = br.readLine()) != null)
-				POSSIBLE_SUFFIXES.add(line.split("=")[0].trim());
-			br.close();
-		} catch (FileNotFoundException e) {
-			System.out.println("\"" + SUFFIX_FILE + "\" not found! Please include file in running path.");
-			System.exit(-1);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
+	
 }

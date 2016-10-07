@@ -21,7 +21,7 @@ public class ModelFinal extends Model {
 	private static final int TUNING_ITERATIONS_FOR_EACH_PARAM = TUNING_SETTINGS.NUM_TRIALS;
 
 	// D is used to obtain P(w|t) when C(w,t) > 0
-	transient private double DEmissionProb;
+	private double DEmissionProb;
 	// Used during tuning
 	transient private double DEmissionProbBest;
 	// alpha is used to obtain P(w|t) when C(w,t) = 0
@@ -33,10 +33,10 @@ public class ModelFinal extends Model {
 	// Sum(|{t: C(t, w)>0}|) over all w. I.e. Total number of distinct
 	// pairs (t, w) in corpus
 	transient private int totalDistinctPairsEmissionProb;
-	transient boolean isEmissionProbInitialised;
+	private boolean isEmissionProbInitialised = false;
 
 	// Lambda is used to obtain P(ti|ti-1)
-	transient private double lambda1TransitionProb, lambda2TransitionProb;
+	private double lambda1TransitionProb, lambda2TransitionProb;
 	// Used during tuning
 	transient private double lambda1TransitionProbBest;
 	
