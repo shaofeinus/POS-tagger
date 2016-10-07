@@ -1,15 +1,16 @@
-package app;
 
 import java.util.ArrayList;
 import java.util.Map;
 
-import data.Model;
-import util.SetReader;
-import util.TaggedSetWriter;
-
+/**
+ * This class tags a untagged set of sentences using Model and Viberti.
+ * 
+ * @author Shao Fei
+ *
+ */
 public class Tagger {
 
-	private Model trainedStatistics;
+	private Model modelStats;
 	private String taggingFile;
 	private String taggedFile;
 
@@ -22,19 +23,19 @@ public class Tagger {
 	 *            The file name of the output tagged file
 	 */
 	public Tagger(Model learner, String taggingFile, String taggedFile) {
-		assert learner.isLearned();
-		this.trainedStatistics = learner;
+		assert learner.isTrained();
+		this.modelStats = learner;
 		this.taggingFile = taggingFile;
 		this.taggedFile = taggedFile;
 	}
 
 	/**
-	 * Give tags to an untagged corpus in taggingFile using the training
-	 * statistics in the Learner class
+	 * Tags an untagged corpus in taggingFile using the training statistics in
+	 * the Learner class
 	 */
 	public void tag() throws IllegalStateException {
-		if (!trainedStatistics.isLearned())
-			throw new IllegalStateException("Training statistics are not ready!");
+		if (!modelStats.isTrained())
+			throw new IllegalStateException("Model is not trained!");
 
 		SetReader reader = new SetReader(taggingFile);
 		TaggedSetWriter writer = new TaggedSetWriter(taggedFile);
@@ -42,12 +43,12 @@ public class Tagger {
 		while (reader.nextLine()) {
 			// Run Viterbi algorithm using the trained statistics in the Learner
 			// class
-			Viterbi vit = new Viterbi(reader, trainedStatistics);
+			Viterbi vit = new Viterbi(reader, modelStats);
 			vit.runViterbi();
 
 			Map<String, ArrayList<String>> backPointer = vit.getBackPointer();
 			String lastTag = vit.getLastTag();
-			writeTaggedFile(reader, writer, backPointer, lastTag);
+			writeTaggedLineToFile(reader, writer, backPointer, lastTag);
 		}
 		writer.close();
 		reader.close();
@@ -68,7 +69,7 @@ public class Tagger {
 	 * @param lastWord
 	 *            Last word in the line
 	 */
-	private void writeTaggedFile(SetReader reader, TaggedSetWriter writer, Map<String, ArrayList<String>> backPointer,
+	private void writeTaggedLineToFile(SetReader reader, TaggedSetWriter writer, Map<String, ArrayList<String>> backPointer,
 			String lastTag) {
 
 		// Write the tag for the last word with the best last tag

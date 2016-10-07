@@ -1,10 +1,16 @@
-package util;
+
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
 
+/**
+ * This class writes a tokenised file.
+ * 
+ * @author Shao Fei
+ *
+ */
 public class SetWriter {
 
 	private LinkedList<String> tokens;

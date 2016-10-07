@@ -1,4 +1,4 @@
-package util;
+
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -6,6 +6,12 @@ import java.io.FileReader;
 import java.io.IOException;
 
 
+/**
+ * This class reads a tokenised corpus.
+ * 
+ * @author Shao Fei
+ *
+ */
 public class SetReader {
 
 	private String[] currLineTokens;
@@ -145,7 +151,6 @@ public class SetReader {
 		try {
 			br.close();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

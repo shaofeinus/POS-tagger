@@ -1,5 +1,3 @@
-package data;
-
 /**
  * This class implements an Add-N smoothing method to handle zero counts, where
  * a constant n is added to the counts of all observations C(a,b): P(a|b) =
@@ -10,9 +8,11 @@ package data;
  */
 public class ModelAddN extends Model {
 
-	private static final double[] N_EMISSION_PROB_RANGE = { 0.0, 5.0 };
-	private static final double[] N_TRANSITION_PROB_RANGE = { 0.0, 1.0 };
-	private static final int TUNING_ITERATIONS_FOR_EACH_PARAM = 10;
+	private static final long serialVersionUID = -4010629963455902709L;
+	
+	private static final double[] N_EMISSION_PROB_RANGE = TUNING_SETTINGS.N_EMISSION_PROB_RANGE;
+	private static final double[] N_TRANSITION_PROB_RANGE = TUNING_SETTINGS.N_TRANSITION_PROB_RANGE;
+	private static final int TUNING_ITERATIONS_FOR_EACH_PARAM = TUNING_SETTINGS.NUM_TRIALS;
 
 	// Used during tuning
 	// 1 for emission probability and 1 for transition probability
@@ -37,27 +37,27 @@ public class ModelAddN extends Model {
 	}
 
 	@Override
-	protected double nonZeroCountEmissionProb(String tag, String word) {
+	protected double nonZeroEmissionProb(String tag, String word) {
 		// P(w|t) = [C(w,t) + n]/[C(t) + n*vocabulary size]
 		return (tagAndWordCount.get(tag).get(word).doubleValue() + nEmissionProb)
 				/ (tagCount.get(tag).doubleValue() + nEmissionProb * vocabulary.size());
 	}
 
 	@Override
-	protected double nonZeroCountTransitionProb(String prevTag, String tag) {
+	protected double nonZeroTransitionProb(String prevTag, String tag) {
 		// P(ti|ti-1) = [C(ti,ti-1) + n]/[C(ti) + n*no of tags]
 		return (prevTagAndTagCount.get(prevTag).get(tag).doubleValue() + nTransitionProb)
 				/ (tagCount.get(prevTag).doubleValue() + nTransitionProb * ALL_POS_TAGS.size());
 	}
 
 	@Override
-	protected double zeroCountEmissionProb(String tag, String word) {
+	protected double zeroEmissionProb(String tag, String word) {
 		// P(w|t) = n/[C(t) + n*vocabulary size]
 		return nEmissionProb / (tagCount.get(tag).doubleValue() + nEmissionProb * vocabulary.size());
 	}
 
 	@Override
-	protected double zeroCountTransitionProb(String prevTag, String tag) {
+	protected double zeroTransitionProb(String prevTag, String tag) {
 		// P(w|t) = n/[C(ti) + n*no of tags]]
 		return nTransitionProb / (tagCount.get(prevTag).doubleValue() + nTransitionProb * ALL_POS_TAGS.size());
 	}
@@ -69,11 +69,12 @@ public class ModelAddN extends Model {
 		double nTransitionProbInterval = (N_TRANSITION_PROB_RANGE[1] - N_TRANSITION_PROB_RANGE[0])
 				/ TUNING_ITERATIONS_FOR_EACH_PARAM;
 		// All parameters values are exhausted
-		if (nEmissionProb == N_EMISSION_PROB_RANGE[1] && nTransitionProb == N_TRANSITION_PROB_RANGE[1])
+		if (nEmissionProb + nEmissionProbInterval > N_EMISSION_PROB_RANGE[1]
+				&& nTransitionProb + nTransitionProbInterval > N_TRANSITION_PROB_RANGE[1])
 			return false;
 		// Increment nTransitionProb first then increment nEmissionProb when
 		// nTransitionProb exhuasted its range
-		if (nTransitionProb == N_TRANSITION_PROB_RANGE[1]) {
+		if (nTransitionProb + nTransitionProbInterval > N_TRANSITION_PROB_RANGE[1]) {
 			nTransitionProb = N_TRANSITION_PROB_RANGE[0];
 			nEmissionProb += nEmissionProbInterval;
 			return true;
@@ -102,6 +103,11 @@ public class ModelAddN extends Model {
 		nTransitionProbBest = N_TRANSITION_PROB_RANGE[0];
 		nEmissionProb = N_EMISSION_PROB_RANGE[0];
 		nTransitionProb = N_TRANSITION_PROB_RANGE[0];
+	}
+
+	@Override
+	public String getParamtersValues() {
+		return nEmissionProb + "," + nTransitionProb;
 	}
 
 }

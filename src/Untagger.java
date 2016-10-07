@@ -1,4 +1,4 @@
-package util;
+
 
 /**
  * This class transforms a set of tagged sentences into untagged sentences by

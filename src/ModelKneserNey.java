@@ -1,4 +1,4 @@
-package data;
+
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -11,10 +11,12 @@ import java.util.Map;
  *
  */
 public class ModelKneserNey extends Model {
+
+	private static final long serialVersionUID = -7594308161525627350L;
 	
-	private static final double[] D_EMISSION_PROB_RANGE = { 0.0, 1.0 };
-	private static final double[] D_TRANSITION_PROB_RANGE = { 0.0, 0.1 };
-	private static final int TUNING_ITERATIONS_FOR_EACH_PARAM = 10;
+	private static final double[] D_EMISSION_PROB_RANGE = TUNING_SETTINGS.D_EMISSION_PROB_RANGE;
+	private static final double[] D_TRANSITION_PROB_RANGE = TUNING_SETTINGS.D_TRANSITION_PROB_RANGE;
+	private static final int TUNING_ITERATIONS_FOR_EACH_PARAM = TUNING_SETTINGS.NUM_TRIALS;
 
 	// D is used to obtain P(a|b) when C(a,b) > 0
 	// 1 for emission probability and 1 for transition probability
@@ -23,7 +25,7 @@ public class ModelKneserNey extends Model {
 	// Used during tuning
 	// 1 for emission probability and 1 for transition probability
 	transient private double DEmissionProbBest;
-	transient private double DTransitonProbBest;
+	transient private double DTransitionProbBest;
 	// alpha is used to obtain P(a|b) when C(a,b) = 0
 	// 1 for emission probability and 1 for transition probability
 	transient private Map<String, Double> alphaEmissionProb;
@@ -38,9 +40,9 @@ public class ModelKneserNey extends Model {
 	// 1 for emission probability and 1 for transition probability
 	transient private int totalDistinctPairsEmissionProb;
 	transient private int totalDistinctPairsTransitionProb;
-
-	transient private boolean isParamsEmissionProbInitialised, isParamsTransitionProbInitialised;
-
+	
+	transient boolean isEmissionProbInitialised, isTransitionProbInitialised;
+	
 	public ModelKneserNey(String trainingFile) {
 		super(trainingFile);
 		setParametersToDefault();
@@ -54,7 +56,7 @@ public class ModelKneserNey extends Model {
 	 */
 	public void setDEmissionProb(double D) {
 		this.DEmissionProb = D;
-		isParamsEmissionProbInitialised = false;
+		isEmissionProbInitialised = false;
 	}
 
 	/**
@@ -65,32 +67,34 @@ public class ModelKneserNey extends Model {
 	 */
 	public void setDTransitionProb(double D) {
 		this.DTransitionProb = D;
-		isParamsTransitionProbInitialised = false;
+		isTransitionProbInitialised = false;
 	}
 
 	@Override
-	protected double nonZeroCountEmissionProb(String tag, String word) {
+	protected double nonZeroEmissionProb(String tag, String word) {
 		return (tagAndWordCount.get(tag).get(word).doubleValue() - DEmissionProb) / tagCount.get(tag);
 	}
 
 	@Override
-	protected double nonZeroCountTransitionProb(String prevTag, String tag) {
+	protected double nonZeroTransitionProb(String prevTag, String tag) {
 		return (prevTagAndTagCount.get(prevTag).get(tag).doubleValue() - DTransitionProb)
 				/ tagCount.get(prevTag).doubleValue();
 	}
 
 	@Override
-	protected double zeroCountEmissionProb(String tag, String word) {
-		if (!isParamsEmissionProbInitialised)
+	protected double zeroEmissionProb(String tag, String word) {
+		if (!isEmissionProbInitialised)
 			initParamsEmissionProb();
-		return alphaEmissionProb.get(tag) * distinctPairsEmissionProb.get(word) / totalDistinctPairsEmissionProb;
+		return alphaEmissionProb.get(tag) * distinctPairsEmissionProb.get(word).doubleValue()
+				/ totalDistinctPairsEmissionProb;
 	}
 
 	@Override
-	protected double zeroCountTransitionProb(String prevTag, String tag) {
-		if (!isParamsTransitionProbInitialised)
+	protected double zeroTransitionProb(String prevTag, String tag) {
+		if (!isTransitionProbInitialised)
 			initParamsTransitionProb();
-		return alphaTransitionProb.get(prevTag) * distinctPairsTransitionProb.get(tag) / totalDistinctPairsTransitionProb;
+		return alphaTransitionProb.get(prevTag) * distinctPairsTransitionProb.get(tag).doubleValue()
+				/ totalDistinctPairsTransitionProb;
 	}
 
 	private void initParamsEmissionProb() {
@@ -126,11 +130,12 @@ public class ModelKneserNey extends Model {
 				continue;
 			double alpha = alphaNumerator(tagAndWordCount, tagCount, tag, DEmissionProb)
 					/ alphaDenominator(tagAndWordCount, distinctPairsEmissionProb, totalDistinctPairsEmissionProb, tag);
-//			System.out.println("alpha emission prob for " + tag + ": " + alpha);
+			// System.out.println("alpha emission prob for " + tag + ": " +
+			// alpha);
 			alphaEmissionProb.put(tag, alpha);
 		}
 
-		isParamsEmissionProbInitialised = true;
+		isEmissionProbInitialised = true;
 	}
 
 	private void initParamsTransitionProb() {
@@ -138,7 +143,7 @@ public class ModelKneserNey extends Model {
 		distinctPairsTransitionProb = new HashMap<String, Integer>();
 		totalDistinctPairsTransitionProb = 0;
 
-		// For each word find the distinct number of pairs of (word, tag)
+		// For each tag find the distinct number of pairs of (prevTag, tag)
 		Iterator<String> prevTagIter = ALL_POS_TAGS.getIterator();
 		while (prevTagIter.hasNext()) {
 			String prevTag = prevTagIter.next();
@@ -151,7 +156,8 @@ public class ModelKneserNey extends Model {
 				if (!distinctPairsTransitionProb.containsKey(tag))
 					distinctPairsTransitionProb.put(tag, 0);
 				distinctPairsTransitionProb.put(tag, distinctPairsTransitionProb.get(tag) + 1);
-				// Increment the total number of distinct pairs of (word, tag)
+				// Increment the total number of distinct pairs of (prevTag,
+				// tag)
 				// at the same time
 				totalDistinctPairsTransitionProb++;
 			}
@@ -166,11 +172,12 @@ public class ModelKneserNey extends Model {
 				continue;
 			double alpha = alphaNumerator(prevTagAndTagCount, tagCount, prevTag, DTransitionProb) / alphaDenominator(
 					prevTagAndTagCount, distinctPairsTransitionProb, totalDistinctPairsTransitionProb, prevTag);
-//			System.out.println("alpha transition prob for " + prevTag + ": " + alpha);
+			// System.out.println("alpha transition prob for " + prevTag + ": "
+			// + alpha);
 			alphaTransitionProb.put(prevTag, alpha);
 		}
 
-		isParamsTransitionProbInitialised = true;
+		isTransitionProbInitialised = true;
 	}
 
 	/**
@@ -208,7 +215,7 @@ public class ModelKneserNey extends Model {
 	 * @param distinctPairs
 	 * @param totalDistinctPairs
 	 * @param wMinus1
-	 * @return
+	 * @return denominator of alpha
 	 */
 	private double alphaDenominator(Map<String, Map<String, Integer>> wMinus1AndW0Count,
 			Map<String, Integer> distinctPairs, int totalDistinctPairs, String wMinus1) {
@@ -233,13 +240,13 @@ public class ModelKneserNey extends Model {
 		double DTransitionProbInterval = (D_TRANSITION_PROB_RANGE[1] - D_TRANSITION_PROB_RANGE[0])
 				/ TUNING_ITERATIONS_FOR_EACH_PARAM;
 		// All parameters values are exhausted
-		if (DEmissionProb == D_EMISSION_PROB_RANGE[1]
-				&& DTransitionProb == D_TRANSITION_PROB_RANGE[1])
+		if (DEmissionProb + DEmissionProbInterval > D_EMISSION_PROB_RANGE[1]
+				&& DTransitionProb + DTransitionProbInterval > D_TRANSITION_PROB_RANGE[1])
 			return false;
 		// Increment lambda1TransitionProb first then increment
 		// lambda1EmissionProb when
 		// lambda1TransitionProb exhuasted its range
-		if (DTransitionProb == D_TRANSITION_PROB_RANGE[1]) {
+		if (DTransitionProb + DTransitionProbInterval > D_TRANSITION_PROB_RANGE[1]) {
 			setDTransitionProb(D_TRANSITION_PROB_RANGE[0]);
 			setDEmissionProb(DEmissionProb + DEmissionProbInterval);
 			return true;
@@ -251,22 +258,27 @@ public class ModelKneserNey extends Model {
 
 	@Override
 	public void rememberCurrentParametersAsBest() {
-		DEmissionProb = DEmissionProbBest;
-		DTransitionProb = DTransitonProbBest;
+		DEmissionProbBest = DEmissionProb;
+		DTransitionProbBest = DTransitionProb;
 	}
 
 	@Override
 	public void setParametersToBest() {
 		setDEmissionProb(DEmissionProbBest);
-		setDTransitionProb(DEmissionProbBest);
+		setDTransitionProb(DTransitionProbBest);
 	}
 
 	@Override
 	public void setParametersToDefault() {
-		DEmissionProb = D_EMISSION_PROB_RANGE[0];
-		DTransitionProb = D_TRANSITION_PROB_RANGE[0];
-		isParamsEmissionProbInitialised = false;
-		isParamsTransitionProbInitialised = false;
+		DEmissionProbBest = D_EMISSION_PROB_RANGE[0];
+		DTransitionProbBest = D_TRANSITION_PROB_RANGE[0];
+		setDEmissionProb(D_EMISSION_PROB_RANGE[0]);
+		setDTransitionProb(D_TRANSITION_PROB_RANGE[0]);
+	}
+
+	@Override
+	public String getParamtersValues() {
+		return DEmissionProb + "," + DTransitionProb;
 	}
 
 }

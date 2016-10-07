@@ -1,5 +1,11 @@
-package util;
 
+
+/**
+ * This class further writes words and tags to a tokenised file
+ * 
+ * @author Shao Fei
+ *
+ */
 public class TaggedSetWriter extends SetWriter {
 
 	private String currWord;

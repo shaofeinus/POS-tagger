@@ -1,5 +1,10 @@
-package util;
 
+/**
+ * This class further identifies words and tags in a tokenised corpus
+ * 
+ * @author Shao Fei
+ *
+ */
 public class TaggedSetReader extends SetReader {
 
 	public TaggedSetReader(String fileName) {
